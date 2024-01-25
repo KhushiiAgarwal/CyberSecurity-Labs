@@ -1,7 +1,7 @@
 
 import java.io.*;
 
-public class Main {
+public class SDES {
 	// int key[]= {0,0,1,0,0,1,0,1,1,1};
 	int key[] = {1, 0, 1, 0, 0, 0, 0, 0, 1, 0};
 	int P10[] = {3, 5, 2, 7, 4, 10, 1, 9, 8, 6};
