@@ -36,16 +36,13 @@ public class Cipher {
 
         if (option == 1) {
             System.out.println("Text : " + text);
-            // System.out.println("Shift : " + s);
             System.out.println("Encoded text: " + encrypt(text, s, true));
         } else if (option == 2) {
             System.out.println("Text : " + text);
-            // System.out.println("Shift : " + s);
             System.out.println("Decoded Text: " + encrypt(text, s, false));
         } else {
             System.out.println("Error 404");
         }
-
         scanner.close();
     }
 }
