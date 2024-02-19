@@ -3,9 +3,9 @@ import java.util.Arrays;
 public class AES {
 
     public static void main(String[] args) {
-        String K = "0100101011110101";
-        String W0 = "01001010";
-        String W1 = "11110101";
+        String K = "0101101010110101";
+        String W0 = "01011010";
+        String W1 = "10110101";
 
         System.out.println("Original Key (K): " + K);
         System.out.println("Round Key : " + W0 + " " + W1);
@@ -13,13 +13,11 @@ public class AES {
         // Generate round keys for AES
         String[] roundKeys = generateRoundKeys(K, W0, W1);
 
-        // Print the generated round keys
         for (int i = 0; i < roundKeys.length; i = i + 2) {
-            System.out.println("Round Key " + ": " + roundKeys[i] + " " + roundKeys[i + 1]);
+            System.out.println("Round Key " + (i + 2) + ": " + roundKeys[i] + " " + roundKeys[i + 1]);
         }
 
-        // Example plaintext in binary format (16 bits)
-        String plaintext = "1101011101011101";
+        String plaintext = "1000101010110101";
         System.out.println("Original Plain Text: " + plaintext);
 
         // Encrypt plaintext
@@ -32,7 +30,7 @@ public class AES {
     }
 
     public static String[] generateRoundKeys(String K, String W0, String W1) {
-        String[] roundKeys = new String[4];
+        String[] roundKeys = new String[6]; // Adjusted to generate 3 round keys
 
         // Round Key 2 (W2)
         roundKeys[0] = xorBinaryStrings(W0, keySchedule(W1));
@@ -45,6 +43,12 @@ public class AES {
 
         // Round Key 5 (W5)
         roundKeys[3] = xorBinaryStrings(roundKeys[1], keySchedule(roundKeys[2]));
+
+        // Round Key 6 (W6)
+        roundKeys[4] = xorBinaryStrings(roundKeys[2], keySchedule(roundKeys[3]));
+
+        // Round Key 7 (W7)
+        roundKeys[5] = xorBinaryStrings(roundKeys[3], keySchedule(roundKeys[4]));
 
         return roundKeys;
     }
@@ -59,7 +63,6 @@ public class AES {
         StringBuilder paddedA = new StringBuilder(a);
         StringBuilder paddedB = new StringBuilder(b);
 
-        // Pad the shorter string with zeros at the beginning
         while (paddedA.length() < maxLength) {
             paddedA.insert(0, "0");
         }
@@ -76,25 +79,27 @@ public class AES {
     }
 
     public static String encrypt(String plaintext, String[] roundKeys) {
+        // Ensure plaintext is exactly 16 bits long
+        plaintext = padTo16Bits(plaintext);
+
         String state = plaintext;
         for (int round = 0; round < 3; round++) {
-            state = addRoundKey(state, roundKeys[round]);
+            state = addRoundKey(state, roundKeys[round * 2]); 
+            state = shiftRows(state); 
             state = mixColumns(state);
         }
-        state = addRoundKey(state, roundKeys[3]); // Final round
+        state = addRoundKey(state, roundKeys[5]); 
         return state;
     }
 
     public static String decrypt(String ciphertext, String[] roundKeys) {
         String state = ciphertext;
-        state = addRoundKey(state, roundKeys[3]); // Initial round
+        state = addRoundKey(state, roundKeys[5]);
         for (int round = 2; round >= 0; round--) {
-            state = inverseShiftRows(state);
+            state = inverseMixColumns(state);
+            state = inverseShiftRows(state); 
             state = inverseSubstituteBytes(state);
-            state = addRoundKey(state, roundKeys[round]);
-            if (round > 0) {
-                state = inverseMixColumns(state);
-            }
+            state = addRoundKey(state, roundKeys[round * 2]); 
         }
         return state;
     }
@@ -112,8 +117,8 @@ public class AES {
         };
         String[] newState = new String[16];
         for (int i = 0; i < 16; i++) {
-            String row = state.substring(i * 4, (i * 4) + 2);
-            String col = state.substring((i * 4) + 2, (i * 4) + 4);
+            String row = state.substring(i * 4, Math.min((i + 1) * 4, state.length())); 
+            String col = state.substring(Math.min((i + 1) * 4, state.length()), Math.min((i + 2) * 4, state.length())); 
             int rowIndex = Integer.parseInt(row, 2);
             int colIndex = Integer.parseInt(col, 2);
             newState[i] = sBox[(rowIndex * 4) + colIndex];
@@ -125,7 +130,7 @@ public class AES {
         String[] newState = new String[16];
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                newState[(i * 4) + j] = state.substring((j * 4) + i, (j * 4) + i + 1);
+                newState[(i * 4) + j] = state.substring((i * 4) + ((i + j) % 4), (i * 4) + ((i + j) % 4) + 1);
             }
         }
         return String.join("", newState);
@@ -148,41 +153,41 @@ public class AES {
                 newState[(i * 4) + j] = Integer.toBinaryString(sum);
             }
         }
-        return String.join("", newState);
+        return padTo16Bits(String.join("", newState));
     }
 
     public static String inverseSubstituteBytes(String state) {
         String[] inverseSBox = {
                 "1010", "1101", "0001", "1000",
-                "0100", "0110", "1001", "0000",
+                "0100", "0110", "1009", "0000", 
                 "0010", "0011", "1100", "1111",
                 "0111", "0101", "1011", "1110"
         };
-        String[] newState = new String[state.length() / 4]; // Adjusted for state length
+        String[] newState = new String[state.length() / 4]; 
         for (int i = 0; i < newState.length; i++) {
-            String nibble = state.substring(i * 4, (i * 4) + 4);
+            String nibble = state.substring(i * 4, Math.min((i + 1) * 4, state.length())); 
             int index = Arrays.asList(inverseSBox).indexOf(nibble);
             newState[i] = Integer.toBinaryString(index);
         }
-        return String.join("", newState);
+        return padTo16Bits(String.join("", newState));
     }
 
     public static String inverseShiftRows(String state) {
         String[] newState = new String[16];
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                newState[(i * 4) + j] = state.substring((j * 4) + i, (j * 4) + i + 1);
+                newState[(i * 4) + j] = state.substring((i * 4) + ((j - i + 4) % 4), (i * 4) + ((j - i + 4) % 4) + 1);
             }
         }
         return String.join("", newState);
     }
 
-   public static String inverseMixColumns(String state) {
+    public static String inverseMixColumns(String state) {
         int[][] matrix = {
-            {14, 11, 13, 9},
-            {9, 14, 11, 13},
-            {13, 9, 14, 11},
-            {11, 13, 9, 14}
+                {14, 11, 13, 9},
+                {9, 14, 11, 13},
+                {13, 9, 14, 11},
+                {11, 13, 9, 14}
         };
         String[] newState = new String[16];
         for (int i = 0; i < 4; i++) {
@@ -198,7 +203,17 @@ public class AES {
                 newState[(i * 4) + j] = Integer.toBinaryString(sum);
             }
         }
-        return String.join("", newState);
+        return padTo16Bits(String.join("", newState));
     }
 
+    public static String padTo16Bits(String binaryString) {
+        if (binaryString.length() > 16) {
+            return binaryString.substring(0, 16); // Truncate if longer than 16 bits
+        } else {
+            while (binaryString.length() < 16) {
+                binaryString = "0" + binaryString;
+            }
+            return binaryString;
+        }
+    }
 }
